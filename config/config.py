@@ -258,7 +258,7 @@ GentooAMD64 = Base | {
     'portage': Base['portage'] | {
         "make.conf": Base['portage']['make.conf'] | {
             'CHOST': 'x86_64-unknown-linux-gnu',
-            "USE": Base["portage"]["make.conf"]["USE"] + ["-systemd", "elogind", "openssl"]
+            "USE": Base["portage"]["make.conf"]["USE"] + ["-systemd", "elogind", "openssl"],
             'GRUB_PLATFORMS': "efi-64",
         },
         "package.license": [
