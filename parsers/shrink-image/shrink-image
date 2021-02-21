@@ -1,0 +1,64 @@
+#!/usr/bin/python3
+import os
+import sys
+import subprocess
+import time
+
+sys.path.append(os.environ['CONFIG_DIR'])
+
+import config
+config = getattr(config, os.environ['PROJECT'])
+
+image = config['image']
+
+
+os.chdir(os.environ['PROJECT_DIR'])
+
+def check(p):
+    p.wait()
+    if p.poll():
+        raise RuntimeError(f"{p} exited non-zero: {p.poll()}")
+
+p = subprocess.Popen(['/sbin/btrfs', 'device', 'usage', '-b', 'image'], stdout=subprocess.PIPE)
+check(p)
+
+p.stdout.readline()
+filesystemsize = int(p.stdout.readline().decode('utf-8').split(':',1)[1])
+for i in range(4):
+    p.stdout.readline()
+unused = int(p.stdout.readline().decode('utf-8').split(':',1)[1])
+print(30, unused)
+
+
+p = subprocess.Popen(['/sbin/btrfs', 'filesystem', 'resize', f'-{unused // 1024 - 1024*1024}K', 'image'])
+check(p)
+
+p = subprocess.Popen(['/sbin/btrfs', 'device', 'usage', '-b', 'image'], stdout=subprocess.PIPE)
+check(p)
+
+p.stdout.readline()
+filesystemsize = int(p.stdout.readline().decode('utf-8').split(':',1)[1])
+slack = int(p.stdout.readline().decode('utf-8').split(':',1)[1])
+
+
+with open('loopdevice.txt') as f:
+    loopdevice = f.read().strip()
+
+
+p = subprocess.Popen(['lsblk', '-b', loopdevice], stdout=subprocess.PIPE)
+check(p)
+p.stdout.readline()
+disksize = int(p.stdout.readline().decode('utf-8').split()[3])
+bootsize = int(p.stdout.readline().decode('utf-8').split()[3])
+
+p = subprocess.Popen(['/usr/sbin/parted', '---pretend-input-tty', image['name'], "resizepart", "2", f'{(bootsize+filesystemsize-slack+1024*1024) // 1024 + 1}KiB\n'], stdin=subprocess.PIPE)
+
+p.stdin.write(b'yes\n')
+p.stdin.flush()
+p.stdin.close()
+check(p)
+print(bootsize, filesystemsize, slack, sep='\n')
+print("Resizing to: "+f'{(bootsize + filesystemsize - slack + 1024 * 1024) // 1024 + 1024*32}KiB')
+
+p = subprocess.Popen(['truncate', '-s', f'{(bootsize + filesystemsize - slack + 1024 * 1024) // 1024 + 1024*32}KiB', image['name']])
+check(p)
