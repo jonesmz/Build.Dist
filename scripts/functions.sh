@@ -1,11 +1,11 @@
 
 
 systemctl_enable () {
-    echo systemctl enable "$1"
+    echo "systemctl enable $1"
 }
 
 rcupdate_add () {
-    echo rc-update add "$1" "$2"
+    echo "rc-update add $1 $2"
 }
 
 
